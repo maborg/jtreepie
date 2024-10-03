@@ -67,7 +67,7 @@ public class MainClass {
   private ConcurrentHierarchicalFolderSizeCalculator calculator;
   private SunburstFolderSizeVisualizer visualizer;
   private String currentPath = "";
-  private Long currentSize;
+
   private TextRenderer textRenderer;
 
   public void run() {
@@ -86,12 +86,6 @@ public class MainClass {
   }
 
   private void init() {
-    // test calculate size
-    String rootPath = "C:\\"; // Replace with your desired path
-
-    calculator = new ConcurrentHierarchicalFolderSizeCalculator();
-    calculator.startCalculation(rootPath);
-
     // Setup an error callback
     GLFWErrorCallback.createPrint(System.err).set();
 
@@ -115,9 +109,9 @@ public class MainClass {
     }
 
     // Setup a key callback
-    glfwSetKeyCallback(window, (window, key, scancode, action, mods) -> {
+    glfwSetKeyCallback(window, (windowp, key, scancode, action, mods) -> {
       if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
-        glfwSetWindowShouldClose(window, true);
+        glfwSetWindowShouldClose(windowp, true);
       }
     });
 
@@ -145,8 +139,8 @@ public class MainClass {
     glfwShowWindow(window);
   }
 
-
   private void loop() {
+    Long currentSize;
     // This line is critical for LWJGL's interoperation with GLFW's
     // OpenGL context, or any context that is managed externally.
     // LWJGL detects the context that is current in the current thread,
@@ -154,13 +148,17 @@ public class MainClass {
     // bindings available for use.
     GL.createCapabilities();
 
-    // Initialize our renderer
+    // Initialize our renderers
     if (renderer == null) {
       VectorFont font = new VectorFont();
       textRenderer = new TextRenderer(font);
       renderer = new MultiPartialDiskRenderer();
       renderer.init(32);  // 32 slices
       visualizer = new SunburstFolderSizeVisualizer(renderer);
+      // test calculate size
+      String rootPath = "C:\\"; // Replace with your desired path
+      calculator = new ConcurrentHierarchicalFolderSizeCalculator();
+      calculator.startCalculation(rootPath);
     }
 
     // Set the clear color
@@ -177,7 +175,6 @@ public class MainClass {
       visualizer.visualize(rootInfo, 0.0f, 0.0f, 0.1f);
 
       // retrieve the path from the mouse coordinates
-      //visualizer.getPathFromCoordinates(Mouse.getX(), Mouse.getY());
       // Update instance data
       renderer.updateInstanceData();
       float[] xy = getOpenGLMousePosition(window);
@@ -198,6 +195,7 @@ public class MainClass {
 
       textRenderer.drawText2D(currentPath, xy[2], 600-xy[3], 10f,new Vector2f(-1,-1),TextRenderer.TextBoundType.BASELINE, new Vector4f(0,0,0,1));
       textRenderer.render();
+
       glfwSwapBuffers(window); // swap the color buffers
 
       // Poll for window events. The key callback above will only be
@@ -207,6 +205,7 @@ public class MainClass {
 
     // Cleanup
     renderer.cleanup();
+    calculator.stop();
   }
 
   private void openPathIfMousePressed(String path) {

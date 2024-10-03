@@ -4,7 +4,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -12,8 +14,10 @@ public class ConcurrentHierarchicalFolderSizeCalculator {
     private final ConcurrentHashMap<String, FolderInfo> folderMap = new ConcurrentHashMap<>();
     private final ReentrantReadWriteLock rootLock = new ReentrantReadWriteLock();
     private volatile String rootPath;
+    private AtomicBoolean stop = new AtomicBoolean(false);
 
     public void startCalculation(String rootPath) {
+        stop.set(false);
         this.rootPath = rootPath;
         Thread calculationThread = new Thread(() -> calculateFolderSizes(rootPath));
         calculationThread.start();
@@ -32,7 +36,7 @@ public class ConcurrentHierarchicalFolderSizeCalculator {
         Deque<File> folderStack = new LinkedList<>();
         folderStack.push(rootFolder);
 
-        while (!folderStack.isEmpty()) {
+        while (!folderStack.isEmpty() && !stop.get()) {
             File currentFolder = folderStack.pop();
             long folderSize = 0;
             ArrayList<String> subfolderPaths = new ArrayList<>();
@@ -79,15 +83,19 @@ public class ConcurrentHierarchicalFolderSizeCalculator {
         return folderMap.get(path);
     }
 
+    public void stop() {
+        stop.set(true);
+    }
+
     public static class FolderInfo {
         private final ConcurrentHierarchicalFolderSizeCalculator calculator;
         private final String path;
         private final AtomicLong size;
-        private final ArrayList<String> subfolderPaths;
+        private final List<String> subfolderPaths;
         private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
         public FolderInfo(ConcurrentHierarchicalFolderSizeCalculator calculator,
-            String path, long size, ArrayList<String> subfolderPaths) {
+            String path, long size, List<String> subfolderPaths) {
             this.calculator = calculator;
             this.path = path;
             this.size = new AtomicLong(size);
@@ -106,7 +114,7 @@ public class ConcurrentHierarchicalFolderSizeCalculator {
             size.addAndGet(delta);
         }
 
-        public ArrayList<String> getSubfolderPaths() {
+        public List<String> getSubfolderPaths() {
             lock.readLock().lock();
             try {
                 return new ArrayList<>(subfolderPaths);

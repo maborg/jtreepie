@@ -59,7 +59,6 @@ public class SunburstFolderSizeVisualizer {
             if (subfolder != null) {
                 float subfolderSweepAngle = (float) subfolder.getSize() / totalSubfolderSize * sweepAngle;
                 if (subfolderSweepAngle < 0.05f) {
-                    currentAngle += subfolderSweepAngle;
                     continue; // Skip small subfolders
                 }
                 drawSunburst(subfolder, centerX, centerY, radius,
