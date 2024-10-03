@@ -7,7 +7,7 @@ import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MultiPartialDiskRenderer {
+public class MultiPartialDiskRenderer implements IMultiPartialDiskRenderer {
   private int vaoId;
   private int vboId;
   private int instanceVboId;
@@ -19,6 +19,7 @@ public class MultiPartialDiskRenderer {
     instances = new ArrayList<>();
   }
 
+  @Override
   public void init(int slices) {
     // Generate vertices
     float[] vertices = generatePartialDiskVertices(slices);
@@ -113,10 +114,18 @@ public class MultiPartialDiskRenderer {
     GL20.glDeleteShader(fragmentShaderId);
   }
 
-  public void add(float centerX, float centerY, float startAngle, float sweepAngle, float innerRadius, float outerRadius, float r, float g, float b, float a) {
+  @Override
+  public void add(float centerX, float centerY, float startAngle, float sweepAngle, float innerRadius,
+      float outerRadius, float r, float g, float b, float a) {
     instances.add(new PartialDiskInstance(centerX, centerY, startAngle, sweepAngle, innerRadius, outerRadius, r, g, b, a));
   }
 
+  @Override
+  public void cleanInstances() {
+    instances.clear();
+  }
+
+  @Override
   public void updateInstanceData() {
     if (instances.isEmpty()) {
       return;
@@ -144,6 +153,7 @@ public class MultiPartialDiskRenderer {
     GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
   }
 
+  @Override
   public void render() {
     if (instances.isEmpty()) {
       return;
@@ -156,6 +166,7 @@ public class MultiPartialDiskRenderer {
     GL20.glUseProgram(0);
   }
 
+  @Override
   public void cleanup() {
     GL20.glDisableVertexAttribArray(0);
     GL20.glDisableVertexAttribArray(1);
@@ -191,7 +202,8 @@ public class MultiPartialDiskRenderer {
   private static class PartialDiskInstance {
     float centerX, centerY, startAngle, sweepAngle, innerRadius, outerRadius, r, g, b, a;
 
-    PartialDiskInstance(float centerX, float centerY, float startAngle, float sweepAngle, float innerRadius, float outerRadius, float r, float g, float b, float a) {
+    PartialDiskInstance(float centerX, float centerY, float startAngle, float sweepAngle, float innerRadius,
+        float outerRadius, float r, float g, float b, float a) {
       this.centerX = centerX;
       this.centerY = centerY;
       this.startAngle = startAngle;
