@@ -1,3 +1,6 @@
+/***************************************************
+ * Marco Borgna 2024, all rights reserved          *
+ ***************************************************/
 package me.maborg;
 
 import java.io.File;

@@ -1,8 +1,10 @@
+/***************************************************
+ * Marco Borgna 2024, all rights reserved          *
+ ***************************************************/
 package me.maborg;
 
 import static java.lang.Math.abs;
 import static me.maborg.ConcurrentHierarchicalFolderSizeCalculator.*;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
