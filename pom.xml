@@ -8,92 +8,359 @@
     <artifactId>lwjgl</artifactId>
     <version>1.0-SNAPSHOT</version>
 
-    <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+ <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        	<lwjgl.version>3.3.4</lwjgl.version>
-	<lwjgl.natives>natives-windows</lwjgl.natives>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <maven.compiler.release>11</maven.compiler.release>
+        <maven.compiler.plugin.version>3.12.1</maven.compiler.plugin.version>
+        <maven.shade.plugin.version>3.5.1</maven.shade.plugin.version>
+        <lwjgl.version>3.3.3</lwjgl.version>
+        <native.maven.plugin.version>0.10.1</native.maven.plugin.version>
+        <exec.mainClass>me.maborg.MainClass</exec.mainClass>
+	 <!-- system properties for the application when run by exec:exec command;
+          can be specified on the command line with -Dsys.props="..."
+     -->
+	 <sys.props></sys.props>
     </properties>
+    <name>lwjgl3-helloworld</name> <!-- name of the resulting native executable -->
+	<description>LWJGL3 HelloWorld demo with native image by GraalVM</description>
 
-<dependencyManagement>
-	<dependencies>
+    <profiles>
+        <!-- profiles based on OS platforms (64-bit architectures only) -->
+		<profile>
+            <id>linux-amd64</id>
+            <activation>
+                <os>
+                    <family>Linux</family>
+                    <arch>amd64</arch>
+                </os>
+            </activation>
+            <properties>
+                <platform>linux</platform>
+            </properties>
+        </profile>
+        <profile>
+            <id>linux-arm64</id>
+            <activation>
+                <os>
+                    <family>Linux</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <platform>linux-arm64</platform>
+            </properties>
+        </profile>
+        <profile>
+            <id>mac-amd64</id>
+            <activation>
+                <os>
+                    <family>Mac</family>
+                    <arch>x86_64</arch>
+                </os>
+            </activation>
+            <properties>
+                <platform>macos</platform>
+            </properties>
+        </profile>
+        <profile>
+            <id>mac-arm64</id>
+            <activation>
+                <os>
+                    <family>Mac</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <platform>macos-arm64</platform>
+            </properties>
+        </profile>
+        <profile>
+            <id>windows-amd64</id>
+            <activation>
+                <os>
+                    <family>Windows</family>
+                    <arch>amd64</arch>
+                </os>
+            </activation>
+            <properties>
+                <platform>windows</platform>
+            </properties>
+        </profile>
+        <profile>
+            <id>windows-arm64</id>
+            <activation>
+                <os>
+                    <family>Windows</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <platform>windows-arm64</platform>
+            </properties>
+        </profile>
+    </profiles>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven.compiler.plugin.version}</version>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <executable>java</executable>
+                    <arguments>
+                        <!-- GraalVM's agent to generate (or merge with) native-image configuration files -->
+						<!-- argument>-agentlib:native-image-agent=config-merge-dir=src/main/resources/META-INF/native-image</argument -->
+						<argument>${sys.props}</argument>
+                        <argument>-classpath</argument>
+                        <classpath/>
+                        <argument>${exec.mainClass}</argument>
+                    </arguments>
+                </configuration>
+            </plugin>
+			<!-- extract the LWJGL manifest file -->
+			<plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>unpack</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.lwjgl</groupId>
+                                    <artifactId>lwjgl</artifactId>
+                                    <version>${lwjgl.version}</version>
+                                    <outputDirectory>${project.build.directory}/tmp</outputDirectory>
+                                    <includes>META-INF/MANIFEST.MF</includes>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+			<!-- create the uber jar with all dependencies for current platform -->
+			<plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven.shade.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>no-deps-${platform}</shadedClassifierName>
+                            <filters>
+                                <filter>
+                                    <!-- exclude files that sign a jar -->
+									<artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <!-- exclude any other manifest files -->
+								<transformer
+										implementation="org.apache.maven.plugins.shade.resource.DontIncludeResourceTransformer">
+                                    <resource>MANIFEST.MF</resource>
+                                </transformer>
+								<!-- include the LWJGL manifest file in the uber jar -->
+								<transformer
+										implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
+                                    <resource>META-INF/MANIFEST.MF</resource>
+                                    <file>${project.build.directory}/tmp/META-INF/MANIFEST.MF</file>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.graalvm.buildtools</groupId>
+                <artifactId>native-maven-plugin</artifactId>
+                <version>${native.maven.plugin.version}</version>
+                <extensions>true</extensions>
+                <executions>
+                    <!-- execution>
+                        <id>test-native</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <phase>test</phase>
+                    </execution -->
+					<execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>compile-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <imageName>${project.name}</imageName>
+                    <mainClass>${exec.mainClass}</mainClass>
+                    <metadataRepository>
+                        <enabled>false</enabled>
+                    </metadataRepository>
+                    <buildArgs>
+                        <buildArg>--no-fallback</buildArg>
+                        <buildArg>--initialize-at-run-time=org.lwjgl</buildArg>
+                        <buildArg>--native-image-info</buildArg>
+                        <buildArg>--verbose</buildArg>
+                        <buildArg>-march=compatibility</buildArg> <!-- only available in GraalVM for JDK 17+ -->
+						<!-- buildArg>-H:+TraceNativeToolUsage</buildArg -->
+                    </buildArgs>
+                    <skip>false</skip>
+					<!-- use the uber jar for native image compiling
+                         if long classpath is a problem in Windows
+                    -->
+					<!-- classpath>
+                        <param>
+                            ${project.build.directory}/${project.artifactId}-${project.version}-no-deps-${platform}.jar
+                        </param>
+                    </classpath -->
+                </configuration>
+            </plugin>
+			<!-- some cleanup tasks using the Ant tool -->
+			<plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>fix-uber-jar-manifest</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <target>
+                        <!-- add extra attributes to the shaded uber jar's manifest -->
+						<jar destfile="${project.build.directory}/${project.artifactId}-${project.version}-no-deps-${platform}.jar"
+								update="true">
+                            <manifest>
+<!--                                <attribute name="Ant-Version" value="${ant.version}"/>-->
+<!--                                <attribute name="Created-By" value="Apache Maven ${maven.version}"/>-->
+                                <attribute name="Build-Jdk" value="${java.version}"/>
+                                <attribute name="Main-Class" value="${exec.mainClass}"/>
+                            </manifest>
+                        </jar>
+                    </target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <repositories>
+        <repository>
+            <id>oss.sonatype.org</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- get recommended dependency versions from the LWJGL BOM -->
+			<dependency>
+                <groupId>org.lwjgl</groupId>
+                <artifactId>lwjgl-bom</artifactId>
+                <version>${lwjgl.version}</version>
+                <scope>import</scope>
+                <type>pom</type>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+    <dependencies>
+        <!-- LWJGL modules used: minimal OpenGL -->
 		<dependency>
-			<groupId>org.lwjgl</groupId>
-			<artifactId>lwjgl-bom</artifactId>
-			<version>${lwjgl.version}</version>
-			<scope>import</scope>
-			<type>pom</type>
-		</dependency>
-	</dependencies>
-</dependencyManagement>
-
-<dependencies>
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl</artifactId>
-	</dependency>
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl-assimp</artifactId>
-	</dependency>
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl-glfw</artifactId>
-	</dependency>
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl-openal</artifactId>
-	</dependency>
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl-opengl</artifactId>
-	</dependency>
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl-stb</artifactId>
-	</dependency>
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl</artifactId>
-		<classifier>${lwjgl.natives}</classifier>
-	</dependency>
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl-assimp</artifactId>
-		<classifier>${lwjgl.natives}</classifier>
-	</dependency>
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl-glfw</artifactId>
-		<classifier>${lwjgl.natives}</classifier>
-	</dependency>
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl-openal</artifactId>
-		<classifier>${lwjgl.natives}</classifier>
-	</dependency>
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl-opengl</artifactId>
-		<classifier>${lwjgl.natives}</classifier>
-	</dependency>
-
-	<dependency>
-		<groupId>org.lwjgl</groupId>
-		<artifactId>lwjgl-stb</artifactId>
-		<classifier>${lwjgl.natives}</classifier>
-	</dependency>
-	<dependency>
-		<groupId>org.lwjgl.lwjgl</groupId>
-		<artifactId>lwjgl_util</artifactId>
-		<version>2.9.3</version>
-	</dependency>
- 	<dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-assimp</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-glfw</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-openal</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-opengl</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-stb</artifactId>
+        </dependency>
+		<!-- LWJGL native modules for the above -->
+		<dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl</artifactId>
+            <classifier>natives-${platform}</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-assimp</artifactId>
+            <classifier>natives-${platform}</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-glfw</artifactId>
+            <classifier>natives-${platform}</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-openal</artifactId>
+            <classifier>natives-${platform}</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-opengl</artifactId>
+            <classifier>natives-${platform}</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId>
+            <artifactId>lwjgl-stb</artifactId>
+            <classifier>natives-${platform}</classifier>
+        </dependency>
+		 	<dependency>
 		<groupId>io.github.chiraagchakravarthy</groupId>
 		<artifactId>lwjgl-vectorized-text</artifactId>
 		<version>0.0.4</version>
 	</dependency>
-</dependencies>
+    </dependencies>
 </project>
+
+
 

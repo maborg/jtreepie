@@ -150,7 +150,7 @@ public class MainClass {
 
     // Initialize our renderers
     if (renderer == null) {
-      VectorFont font = new VectorFont();
+      VectorFont font = new VectorFont("/font/arial.ttf");
       textRenderer = new TextRenderer(font);
       renderer = new MultiPartialDiskRenderer();
       renderer.init(32);  // 32 slices
@@ -186,9 +186,9 @@ public class MainClass {
       if (path != null && !path.equals(currentPath)) {
         FolderInfo folderInfo = calculator.getFolderInfo(path);
         currentPath = path;
-        currentSize = folderInfo.getSize();
-        System.out.println(
-            "Mouse at: " + xy[0] + ", " + xy[1] + " Path: " + path + " Size: " + formatSize(currentSize));
+//        currentSize = folderInfo.getSize();
+//        System.out.println(
+//            "Mouse at: " + xy[0] + ", " + xy[1] + " Path: " + path + " Size: " + formatSize(currentSize));
       }
       // Render the partial disks
       renderer.render();
